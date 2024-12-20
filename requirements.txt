@@ -2,3 +2,6 @@ pymongo
 sqlalchemy
 pandas
 python-dotenv
+psycopg2
+requests
+bs4
