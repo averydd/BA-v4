@@ -27,6 +27,33 @@ SELECT
 FROM dex_events
 ORDER BY block_timestamp ASC;
 
+CREATE MATERIALIZED VIEW dex_events_normalized AS
+SELECT
+    id,
+    event_type,
+    readable_date,
+    contract_address,
+    wallet,
+    -- Consolidate token flows based on the cases
+    CASE 
+        WHEN COALESCE(amount0, 0) != 0 AND COALESCE(amount1, 0) != 0 THEN 
+            CASE WHEN amount0 < 0 THEN COALESCE(amount1, 0) / 1e18 ELSE COALESCE(amount0, 0) / 1e18 END
+        WHEN COALESCE(amount0_in, 0) != 0 AND COALESCE(amount1_out, 0) != 0 THEN COALESCE(amount0_in, 0) / 1e18
+        WHEN COALESCE(amount0_out, 0) != 0 AND COALESCE(amount1_in, 0) != 0 THEN COALESCE(amount1_in, 0) / 1e18
+    END AS token_in,
+    CASE 
+        WHEN COALESCE(amount0, 0) != 0 AND COALESCE(amount1, 0) != 0 THEN 
+            CASE WHEN amount0 < 0 THEN COALESCE(amount0, 0) / 1e18 ELSE COALESCE(amount1, 0) / 1e18 END
+        WHEN COALESCE(amount0_in, 0) != 0 AND COALESCE(amount1_out, 0) != 0 THEN COALESCE(amount1_out, 0) / 1e18
+        WHEN COALESCE(amount0_out, 0) != 0 AND COALESCE(amount1_in, 0) != 0 THEN COALESCE(amount0_out, 0) / 1e18
+    END AS token_out
+FROM dex_events_sorted
+WHERE 
+    (COALESCE(amount0, 0) != 0 AND COALESCE(amount1, 0) != 0) OR
+    (COALESCE(amount0_in, 0) != 0 AND COALESCE(amount1_out, 0) != 0) OR
+    (COALESCE(amount0_out, 0) != 0 AND COALESCE(amount1_in, 0) != 0);
+
+
 CREATE TABLE smart_contracts (
     address VARCHAR PRIMARY KEY,
     name VARCHAR,
@@ -38,3 +65,13 @@ CREATE TABLE smart_contracts (
     decimals INTEGER,
     chainId VARCHAR
 );
+CREATE TABLE contract_info (
+            contract_address VARCHAR,
+            token0 VARCHAR,
+            token1 VARCHAR,
+            name_token0 VARCHAR,
+            name_token1 VARCHAR
+        );
+
+DELETE FROM dex_events 
+WHERE contract_address NOT IN (SELECT address FROM smart_contracts);

@@ -86,8 +86,8 @@ def process_csv(input_csv, output_csv):
         writer.writerows(results)
 
 if __name__ == "__main__":
-    input_csv = "unique_swap_contract_address.csv"  # Input CSV file
-    output_csv = "token_pairs_output.csv"  # Output CSV file
+    input_csv = "2.unique_contract_addresses_from_dex_events.csv"  # Input CSV file
+    output_csv = "3.1.contract_address_to_tokens"  # Output CSV file
 
     process_csv(input_csv, output_csv)
     print(f"Data saved to {output_csv}")
