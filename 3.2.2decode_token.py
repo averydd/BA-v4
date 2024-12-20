@@ -1,72 +1,52 @@
 import pandas as pd
-import requests
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from bs4 import BeautifulSoup
+import time
 
-# Etherscan API settings
-ETHERSCAN_API_KEY = "8NKCB1RPTRCMF2MYD1GDYXYEPPSJFCAC86"  # Replace with your Etherscan API key
-ETHERSCAN_BASE_URL = "https://api.etherscan.io/api"
+df = pd.read_csv("token_pairs_output.csv")
 
-def fetch_token_details(token_address):
-    """
-    Fetch the name and symbol of a token from Etherscan API.
-    
-    Parameters:
-        token_address (str): Token contract address.
-    
-    Returns:
-        dict: A dictionary containing the token name and symbol.
-    """
-    params = {
-        "module": "token",
-        "action": "tokeninfo",
-        "contractaddress": token_address,
-        "apikey": ETHERSCAN_API_KEY,
-    }
-    response = requests.get(ETHERSCAN_BASE_URL, params=params)
-    data = response.json()
+options = webdriver.ChromeOptions()
+options.headless = True
 
-    if data["status"] == "1":
-        return {
-            "name": data["result"][0].get("name", "N/A"),
-            "symbol": data["result"][0].get("symbol", "N/A"),
-        }
-    else:
-        print(f"Failed to fetch details for token: {token_address}")
-        return {"name": "N/A", "symbol": "N/A"}
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
-def decode_tokens(input_csv, output_csv):
-    """
-    Decode token addresses into their name and symbol.
-    
-    Parameters:
-        input_csv (str): Path to the CSV file containing unique token addresses.
-        output_csv (str): Path to save the decoded tokens with their name and symbol.
-    """
-    # Load unique tokens
-    tokens = pd.read_csv(input_csv)
 
-    # Create a list to store results
-    decoded_tokens = []
+def get_token_name(contract_address):
+    url = f"https://etherscan.io/address/{contract_address}"
+    driver.get(url)
+    time.sleep(5)
 
-    # Fetch name and symbol for each token
-    for token_address in tokens["unique_tokens"]:
-        print(f"Fetching details for token: {token_address}")
-        details = fetch_token_details(token_address)
-        decoded_tokens.append({
-            "token_address": token_address,
-            "name": details["name"],
-            "symbol": details["symbol"]
-        })
+    soup = BeautifulSoup(driver.page_source, "html.parser")
 
-    # Save the results to a new CSV
-    decoded_df = pd.DataFrame(decoded_tokens)
-    decoded_df.to_csv(output_csv, index=False)
+    try:
+        token_name_tag = soup.find("div", {"id": "ContentPlaceHolder1_tr_tokeninfo"}).find("a")
+        token_name = token_name_tag.get_text(strip=True) if token_name_tag else "Unknown"
 
-    print(f"Decoded token details have been saved to {output_csv}")
+        return token_name
+    except AttributeError:
+        return "Unknown"
 
-if __name__ == "__main__":
-    # Parameters
-    input_csv = "3.2.2.1unique_tokens.csv"  # Input CSV with unique token addresses
-    output_csv = "decoded_tokens.csv"  # Output CSV with token details
 
-    # Decode tokens and save to CSV
-    decode_tokens(input_csv, output_csv)
+names_token0 = []
+names_token1 = []
+
+for index, row in df.iterrows():
+    contract_address1 = row['token0']
+    contract_address2 = row['token1']
+
+    name_token0 = get_token_name(contract_address1)  # Crawl token0
+    name_token1 = get_token_name(contract_address2)  # Crawl token1
+
+    names_token0.append(name_token0)
+    names_token1.append(name_token1)
+
+df['name_token0'] = names_token0
+df['name_token1'] = names_token1
+
+df.to_csv("token_pairs_with_names.csv", index=False)
+
+driver.quit()
+
+print("Crawl hoàn tất và dữ liệu đã được lưu vào 'token_pairs_with_names.csv'")
