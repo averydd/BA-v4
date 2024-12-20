@@ -1,0 +1,13 @@
+dex_events collections: amount0 and amount1 are present, 
+meaning an arbitrary trade (don't know which direction
+but it is a trade lol) amount0_in and amount1_out present
+meaning directional trade happen in the pool (tokenA is
+released by user into the pool--amount0_in and tokenB is
+going from the pool "out" to the user--amount1_out)
+
+potential issue: how to understand if amount0 amount1 mean
+something else?
+potential: link dex_events with knowledge_graph["smart_contract"]
+by contract_address to view the details
+
+amount fields are in original token price value, not in ETH.
