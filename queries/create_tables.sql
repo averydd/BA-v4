@@ -11,27 +11,12 @@ CREATE TABLE IF NOT EXISTS dex_events (
     amount1_out DOUBLE PRECISION,
     wallet TEXT
 );
-CREATE MATERIALIZED VIEW dex_events_sorted AS
-SELECT 
-    id,
-    event_type,
-    to_timestamp(block_timestamp) AS readable_date,
-    contract_address,
-    amount0 / 1e18 as TokenA,
-    amount1 / 1e18 as TokenB,
-    amount0_in / 1e18 as TokenA_in,
-    amount0_out / 1e18 as TokenA_out,
-    amount1_in / 1e18 as TokenB_in,
-    amount1_out / 1e18 as TokenB_out,
-    wallet
-FROM dex_events
-ORDER BY block_timestamp ASC;
 
 CREATE MATERIALIZED VIEW dex_events_normalized AS
 SELECT
     id,
     event_type,
-    readable_date,
+    block_timestamp,
     contract_address,
     wallet,
     -- Consolidate token flows based on the cases
@@ -47,31 +32,26 @@ SELECT
         WHEN COALESCE(amount0_in, 0) != 0 AND COALESCE(amount1_out, 0) != 0 THEN COALESCE(amount1_out, 0) / 1e18
         WHEN COALESCE(amount0_out, 0) != 0 AND COALESCE(amount1_in, 0) != 0 THEN COALESCE(amount0_out, 0) / 1e18
     END AS token_out
-FROM dex_events_sorted
+FROM dex_events
 WHERE 
-    (COALESCE(amount0, 0) != 0 AND COALESCE(amount1, 0) != 0) OR
-    (COALESCE(amount0_in, 0) != 0 AND COALESCE(amount1_out, 0) != 0) OR
-    (COALESCE(amount0_out, 0) != 0 AND COALESCE(amount1_in, 0) != 0);
+    (
+        (COALESCE(amount0, 0) != 0 AND COALESCE(amount1, 0) != 0) OR
+        (COALESCE(amount0_in, 0) != 0 AND COALESCE(amount1_out, 0) != 0) OR
+        (COALESCE(amount0_out, 0) != 0 AND COALESCE(amount1_in, 0) != 0)
+    )
+    AND event_type = 'SWAP';
 
-
-CREATE TABLE smart_contracts (
-    address VARCHAR PRIMARY KEY,
-    name VARCHAR,
-    project VARCHAR,
-    projectDapp VARCHAR,
-    tags JSONB,
-    categories JSONB,
-    symbol VARCHAR,
-    decimals INTEGER,
-    chainId VARCHAR
-);
 CREATE TABLE contract_info (
             contract_address VARCHAR,
-            token0 VARCHAR,
-            token1 VARCHAR,
-            name_token0 VARCHAR,
-            name_token1 VARCHAR
+            token0_address VARCHAR,
+            token1_address VARCHAR,
+            token0_symbol VARCHAR,
+            token1_symbol VARCHAR
         );
 
-DELETE FROM dex_events 
-WHERE contract_address NOT IN (SELECT address FROM smart_contracts);
+CREATE TABLE token_prices (
+            token_address VARCHAR,
+            price DOUBLE PRECISION,
+            block_timestamp BIGINT
+        );
+

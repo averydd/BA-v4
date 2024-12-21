@@ -1,1 +1,0 @@
-select distinct(contract_address) from dex_events

@@ -1,0 +1,31 @@
+Table dex_events_normalized {
+    id                int [pk]
+    event_type        text
+    block_timestamp   bigint
+    contract_address  varchar
+    wallet            varchar
+    token_in          double
+    token_out         double
+}
+
+Table contract_info {
+    contract_address  varchar [pk]
+    token0_address    varchar
+    token1_address    varchar
+    token0_symbol     varchar
+    token1_symbol     varchar
+}
+
+Table token_prices {
+    token_address     varchar [not null]
+    price             double
+    block_timestamp   bigint
+    indexes {
+        (token_address, block_timestamp) [unique]
+    }
+}
+
+Ref: dex_events_normalized.contract_address > contract_info.contract_address
+Ref: token_prices.token_address > contract_info.token0_address
+Ref: token_prices.token_address > contract_info.token1_address
+Ref: token_prices.block_timestamp > dex_events_normalized.block_timestamp
